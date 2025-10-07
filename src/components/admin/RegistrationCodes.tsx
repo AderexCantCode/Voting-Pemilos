@@ -77,35 +77,62 @@ export const RegistrationCodes = () => {
 
   const exportToPDF = () => {
     const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
 
-    doc.setFontSize(18);
-    doc.text("Daftar Kode Registrasi Pemilihan OSIS", 14, 20);
+    const boxWidth = 50;
+    const boxHeight = 20;
+    const padding = 5;
+    const cols = 3;
+    const rows = 8;
 
-    doc.setFontSize(11);
-    doc.text(`Total Kode: ${codes.length}`, 14, 30);
-    doc.text(`Tersedia: ${codes.filter(c => !c.is_used).length}`, 14, 36);
-    doc.text(`Terpakai: ${codes.filter(c => c.is_used).length}`, 14, 42);
+    const startX = (pageWidth - (cols * boxWidth + (cols - 1) * padding)) / 2;
+    const startY = 20;
 
-    const tableData = codes.map(code => [
-      code.code,
-      code.is_used ? "Sudah Digunakan" : "Tersedia",
-      code.is_used ? "Ya" : "-"
-    ]);
+    doc.setFontSize(16);
+    doc.text("KODE REGISTRASI PEMILIHAN OSIS", pageWidth / 2, 12, { align: "center" });
 
-    autoTable(doc, {
-      startY: 50,
-      head: [["Kode", "Status", "Digunakan"]],
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 10 },
-      headStyles: { fillColor: [41, 128, 185] },
+    const availableCodes = codes.filter(c => !c.is_used);
+    let currentPage = 0;
+    let boxIndex = 0;
+
+    availableCodes.forEach((codeItem, index) => {
+      if (boxIndex >= cols * rows) {
+        doc.addPage();
+        currentPage++;
+        boxIndex = 0;
+        doc.setFontSize(16);
+        doc.text("KODE REGISTRASI PEMILIHAN OSIS", pageWidth / 2, 12, { align: "center" });
+      }
+
+      const row = Math.floor(boxIndex / cols);
+      const col = boxIndex % cols;
+
+      const x = startX + col * (boxWidth + padding);
+      const y = startY + row * (boxHeight + padding);
+
+      doc.setLineWidth(0.5);
+      doc.setDrawColor(0, 0, 0);
+      doc.rect(x, y, boxWidth, boxHeight);
+
+      doc.setLineDash([2, 2]);
+      doc.setDrawColor(150, 150, 150);
+      doc.line(x, y + boxHeight, x + boxWidth, y + boxHeight);
+      doc.line(x + boxWidth, y, x + boxWidth, y + boxHeight);
+      doc.setLineDash([]);
+
+      doc.setFontSize(14);
+      doc.setFont(undefined, "bold");
+      doc.text(codeItem.code, x + boxWidth / 2, y + boxHeight / 2 + 2, { align: "center" });
+
+      boxIndex++;
     });
 
     doc.save(`kode-registrasi-${new Date().toISOString().split('T')[0]}.pdf`);
 
     toast({
       title: "PDF berhasil diunduh!",
-      description: "Daftar kode registrasi telah diexport ke PDF.",
+      description: `${availableCodes.length} kode tersedia telah diexport ke PDF.`,
     });
   };
 
