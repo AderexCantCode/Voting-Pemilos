@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Upload } from "lucide-react";
 
 export const CandidateManagement = () => {
   const [candidates, setCandidates] = useState<any[]>([]);
@@ -22,6 +22,9 @@ export const CandidateManagement = () => {
     vision: "",
     mission: "",
   });
+  const [chairmanFile, setChairmanFile] = useState<File | null>(null);
+  const [viceChairmanFile, setViceChairmanFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -37,13 +40,45 @@ export const CandidateManagement = () => {
     if (data) setCandidates(data);
   };
 
+  const uploadPhoto = async (file: File, type: 'chairman' | 'vice') => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}-${type}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('candidate-photos')
+      .upload(filePath, file);
+
+    if (uploadError) throw uploadError;
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('candidate-photos')
+      .getPublicUrl(filePath);
+
+    return publicUrl;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    setUploading(true);
+
     try {
+      let chairmanPhotoUrl = formData.chairman_photo;
+      let viceChairmanPhotoUrl = formData.vice_chairman_photo;
+
+      if (chairmanFile) {
+        chairmanPhotoUrl = await uploadPhoto(chairmanFile, 'chairman');
+      }
+
+      if (viceChairmanFile) {
+        viceChairmanPhotoUrl = await uploadPhoto(viceChairmanFile, 'vice');
+      }
+
       const submitData = {
         ...formData,
         candidate_number: parseInt(formData.candidate_number),
+        chairman_photo: chairmanPhotoUrl,
+        vice_chairman_photo: viceChairmanPhotoUrl,
       };
 
       if (editingCandidate) {
@@ -73,6 +108,8 @@ export const CandidateManagement = () => {
         description: error.message,
         variant: "destructive",
       });
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -107,6 +144,8 @@ export const CandidateManagement = () => {
       vision: "",
       mission: "",
     });
+    setChairmanFile(null);
+    setViceChairmanFile(null);
   };
 
   const handleEdit = (candidate: any) => {
@@ -166,22 +205,44 @@ export const CandidateManagement = () => {
                 </div>
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="chairmanPhoto">URL Foto Ketua</Label>
-                    <Input
-                      id="chairmanPhoto"
-                      placeholder="https://..."
-                      value={formData.chairman_photo}
-                      onChange={(e) => setFormData({ ...formData, chairman_photo: e.target.value })}
-                    />
+                    <Label htmlFor="chairmanPhoto">Foto Ketua</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="chairmanPhoto"
+                        type="file"
+                        accept="image/jpeg,image/png,image/jpg"
+                        onChange={(e) => setChairmanFile(e.target.files?.[0] || null)}
+                        className="cursor-pointer"
+                      />
+                      {chairmanFile && (
+                        <span className="text-sm text-muted-foreground">
+                          {chairmanFile.name}
+                        </span>
+                      )}
+                    </div>
+                    {formData.chairman_photo && !chairmanFile && (
+                      <p className="text-xs text-muted-foreground">Foto saat ini sudah ada</p>
+                    )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="vicePhoto">URL Foto Wakil</Label>
-                    <Input
-                      id="vicePhoto"
-                      placeholder="https://..."
-                      value={formData.vice_chairman_photo}
-                      onChange={(e) => setFormData({ ...formData, vice_chairman_photo: e.target.value })}
-                    />
+                    <Label htmlFor="vicePhoto">Foto Wakil</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="vicePhoto"
+                        type="file"
+                        accept="image/jpeg,image/png,image/jpg"
+                        onChange={(e) => setViceChairmanFile(e.target.files?.[0] || null)}
+                        className="cursor-pointer"
+                      />
+                      {viceChairmanFile && (
+                        <span className="text-sm text-muted-foreground">
+                          {viceChairmanFile.name}
+                        </span>
+                      )}
+                    </div>
+                    {formData.vice_chairman_photo && !viceChairmanFile && (
+                      <p className="text-xs text-muted-foreground">Foto saat ini sudah ada</p>
+                    )}
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -202,8 +263,15 @@ export const CandidateManagement = () => {
                     rows={3}
                   />
                 </div>
-                <Button type="submit" className="w-full">
-                  {editingCandidate ? "Update Kandidat" : "Tambah Kandidat"}
+                <Button type="submit" className="w-full" disabled={uploading}>
+                  {uploading ? (
+                    <>
+                      <Upload className="mr-2 h-4 w-4 animate-spin" />
+                      Mengupload...
+                    </>
+                  ) : (
+                    editingCandidate ? "Update Kandidat" : "Tambah Kandidat"
+                  )}
                 </Button>
               </form>
             </DialogContent>
