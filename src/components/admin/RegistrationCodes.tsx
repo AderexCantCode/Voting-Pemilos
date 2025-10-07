@@ -4,9 +4,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Copy, RefreshCw, Plus } from "lucide-react";
+import { Copy, RefreshCw, Plus, FileDown } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 export const RegistrationCodes = () => {
   const [codes, setCodes] = useState<any[]>([]);
@@ -73,6 +75,40 @@ export const RegistrationCodes = () => {
     });
   };
 
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+
+    doc.setFontSize(18);
+    doc.text("Daftar Kode Registrasi Pemilihan OSIS", 14, 20);
+
+    doc.setFontSize(11);
+    doc.text(`Total Kode: ${codes.length}`, 14, 30);
+    doc.text(`Tersedia: ${codes.filter(c => !c.is_used).length}`, 14, 36);
+    doc.text(`Terpakai: ${codes.filter(c => c.is_used).length}`, 14, 42);
+
+    const tableData = codes.map(code => [
+      code.code,
+      code.is_used ? "Sudah Digunakan" : "Tersedia",
+      code.is_used ? "Ya" : "-"
+    ]);
+
+    autoTable(doc, {
+      startY: 50,
+      head: [["Kode", "Status", "Digunakan"]],
+      body: tableData,
+      theme: "grid",
+      styles: { fontSize: 10 },
+      headStyles: { fillColor: [41, 128, 185] },
+    });
+
+    doc.save(`kode-registrasi-${new Date().toISOString().split('T')[0]}.pdf`);
+
+    toast({
+      title: "PDF berhasil diunduh!",
+      description: "Daftar kode registrasi telah diexport ke PDF.",
+    });
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -91,6 +127,14 @@ export const RegistrationCodes = () => {
           <Button onClick={handleGenerateCodes} disabled={loading}>
             <Plus className="mr-2 h-4 w-4" />
             Generate {newCodeCount} Kode
+          </Button>
+          <Button
+            onClick={exportToPDF}
+            variant="outline"
+            disabled={codes.length === 0}
+          >
+            <FileDown className="mr-2 h-4 w-4" />
+            Export ke PDF
           </Button>
         </div>
 
